@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Emotion Recognition — CodeAlpha</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@300;400;500&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── RESET & TOKENS ───────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:       #04070f;
+  --s1:       #080d1a;
+  --s2:       #0d1525;
+  --s3:       #121d30;
+  --b1:       #162038;
+  --b2:       #1e2d4a;
+  --t1:       #dde8f8;
+  --t2:       #7b97ba;
+  --t3:       #3d5475;
+  --acc:      #6366f1;
+  --acc2:     #818cf8;
+  --acc-glow: rgba(99,102,241,0.15);
+  --green:    #10b981;
+  --amber:    #f59e0b;
+  --red:      #ef4444;
+  --pink:     #ec4899;
+  --teal:     #14b8a6;
+  --violet:   #8b5cf6;
+  --orange:   #f97316;
+  --font-h:   'Syne', sans-serif;
+  --font-b:   'Manrope', sans-serif;
+  --font-m:   'JetBrains Mono', monospace;
+  --r:        10px;
+  --sw:       252px;
+}
+
+html{ scroll-behavior:smooth; }
+body{
+  background:var(--bg);
+  color:var(--t1);
+  font-family:var(--font-b);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--s1)}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
+
+/* ── SIDEBAR ──────────────────────────────── */
+#sidebar{
+  position:fixed; top:0; left:0;
+  width:var(--sw); height:100vh;
+  background:var(--s1);
+  border-right:1px solid var(--b1);
+  display:flex; flex-direction:column;
+  z-index:100;
+}
+
+.sb-logo{
+  padding:26px 22px 18px;
+  border-bottom:1px solid var(--b1);
+}
+.sb-logo .ico{font-size:2rem;display:block;margin-bottom:8px}
+.sb-logo h2{
+  font-family:var(--font-h);
+  font-size:1.05rem;
+  letter-spacing:.02em;
+  line-height:1.25;
+  background:linear-gradient(135deg,var(--acc2),var(--teal));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.sb-logo p{font-family:var(--font-m);font-size:.65rem;color:var(--t3);margin-top:4px;letter-spacing:.08em}
+
+.sb-lbl{
+  font-family:var(--font-m);font-size:.6rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--t3);padding:18px 22px 6px
+}
+
+.nav-item{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 22px;cursor:pointer;
+  color:var(--t2);font-size:.85rem;font-weight:500;
+  border-left:3px solid transparent;
+  transition:all .2s;text-decoration:none
+}
+.nav-item:hover{color:var(--t1);background:var(--s2)}
+.nav-item.active{color:var(--acc2);border-left-color:var(--acc);background:var(--acc-glow)}
+.nav-item .ni{font-size:.95rem;width:18px;text-align:center}
+
+.sb-div{height:1px;background:var(--b1);margin:10px 22px}
+
+.sb-sel-wrap{padding:6px 18px 14px}
+.sb-sel-wrap label{
+  font-family:var(--font-m);font-size:.6rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--t3);display:block;margin-bottom:6px
+}
+.sb-sel-wrap select{
+  width:100%;background:var(--s3);border:1px solid var(--b2);
+  color:var(--t1);padding:8px 10px;border-radius:var(--r);
+  font-family:var(--font-b);font-size:.82rem;outline:none;cursor:pointer;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%233d5475' d='M5 7L0 2h10z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+  transition:border-color .2s
+}
+.sb-sel-wrap select:focus{border-color:var(--acc)}
+
+.sb-foot{
+  margin-top:auto;padding:14px 22px;
+  border-top:1px solid var(--b1);
+  font-family:var(--font-m);font-size:.68rem;color:var(--t3)
+}
+.sb-foot a{color:var(--acc);text-decoration:none}
+.sb-foot a:hover{color:var(--acc2)}
+
+/* ── MAIN ─────────────────────────────────── */
+#main{
+  margin-left:var(--sw);
+  min-height:100vh;
+  padding:30px 34px;
+}
+
+.page{display:none}
+.page.active{display:block;animation:fadeUp .35s ease}
+
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+/* ── PAGE HEADER ──────────────────────────── */
+.ph{margin-bottom:26px}
+.ph .ey{
+  font-family:var(--font-m);font-size:.62rem;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--acc);margin-bottom:6px
+}
+.ph h1{
+  font-family:var(--font-h);font-size:2rem;font-weight:800;
+  letter-spacing:-.01em;line-height:1.1
+}
+.ph p{color:var(--t2);font-size:.88rem;margin-top:6px;max-width:560px;line-height:1.65}
+
+/* ── METRIC GRID ──────────────────────────── */
+.mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+.mc{
+  background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);
+  padding:14px 16px;position:relative;overflow:hidden;transition:all .2s
+}
+.mc:hover{border-color:var(--b2);transform:translateY(-2px)}
+.mc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--acc,var(--acc))}
+.mc .ml{font-family:var(--font-m);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:7px}
+.mc .mv{font-family:var(--font-m);font-size:1.6rem;font-weight:500;color:var(--acc,var(--acc2));line-height:1}
+.mc .ms{font-size:.7rem;color:var(--t3);margin-top:4px}
+
+/* ── PANEL ────────────────────────────────── */
+.panel{
+  background:var(--s1);border:1px solid var(--b1);
+  border-radius:var(--r);padding:18px 20px;margin-bottom:18px
+}
+.pt{
+  font-family:var(--font-m);font-size:.62rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--acc);margin-bottom:14px;
+  display:flex;align-items:center;gap:8px
+}
+.pt::after{content:'';flex:1;height:1px;background:var(--b1)}
+
+/* ── GRIDS ────────────────────────────────── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.g21{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+
+/* ── TABLE ────────────────────────────────── */
+.dt{width:100%;border-collapse:collapse;font-size:.82rem}
+.dt th{
+  font-family:var(--font-m);font-size:.6rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--t3);
+  padding:9px 12px;text-align:left;border-bottom:1px solid var(--b1)
+}
+.dt td{
+  padding:9px 12px;border-bottom:1px solid var(--b1);
+  color:var(--t2);font-family:var(--font-m);font-size:.8rem
+}
+.dt tr:last-child td{border-bottom:none}
+.dt tr:hover td{background:var(--s2)}
+.dt td.gold{color:var(--acc2)}
+.badge-b{
+  background:var(--acc-glow);color:var(--acc2);
+  border:1px solid var(--acc);font-size:.58rem;
+  padding:2px 7px;border-radius:20px;margin-left:6px
+}
+
+/* ── TABS ─────────────────────────────────── */
+.tabs{display:flex;gap:2px;margin-bottom:18px;border-bottom:1px solid var(--b1)}
+.tb{
+  padding:8px 16px;font-family:var(--font-b);font-size:.82rem;font-weight:500;
+  color:var(--t3);cursor:pointer;border:none;background:none;
+  border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s
+}
+.tb:hover{color:var(--t1)}
+.tb.active{color:var(--acc2);border-bottom-color:var(--acc)}
+.tc{display:none}
+.tc.active{display:block;animation:fadeUp .3s ease}
+
+/* ── CHART WRAPPERS ───────────────────────── */
+.cw{position:relative;height:240px}
+.cw-lg{height:340px}
+.cw-sm{height:180px}
+
+/* ── EMOTION BADGE ────────────────────────── */
+.emo-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--s3);border:1px solid var(--b2);
+  border-radius:20px;padding:4px 12px;font-size:.8rem;font-weight:500;
+  font-family:var(--font-b);margin:3px
+}
+.emo-dot{width:8px;height:8px;border-radius:50%}
+
+/* ── RADAR WRAP ───────────────────────────── */
+.radar-wrap{position:relative;height:320px;display:flex;align-items:center;justify-content:center}
+
+/* ── CONFUSION ────────────────────────────── */
+.cm-scroll{overflow-x:auto}
+#cm-table{border-collapse:collapse;font-family:var(--font-m);font-size:.72rem;min-width:500px}
+#cm-table th{
+  padding:7px 10px;color:var(--t3);text-align:center;
+  border:1px solid var(--b1);white-space:nowrap
+}
+#cm-table td{
+  padding:7px 10px;text-align:center;
+  border:1px solid var(--b1);min-width:52px;font-size:.75rem
+}
+
+/* ── RECALL BARS ──────────────────────────── */
+.rb-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.rb-label{font-family:var(--font-m);font-size:.72rem;color:var(--t2);width:80px;flex-shrink:0}
+.rb-track{flex:1;height:8px;background:var(--s3);border-radius:4px;overflow:hidden}
+.rb-fill{height:100%;border-radius:4px;transition:width .9s ease}
+.rb-val{font-family:var(--font-m);font-size:.7rem;color:var(--t3);width:40px;text-align:right}
+
+/* ── PREDICTION PAGE ──────────────────────── */
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.fgrp{display:flex;flex-direction:column;gap:6px}
+.fgrp label{font-family:var(--font-m);font-size:.68rem;letter-spacing:.08em;color:var(--t2)}
+.fgrp select,.fgrp input{
+  background:var(--s2);border:1px solid var(--b2);color:var(--t1);
+  padding:9px 11px;border-radius:var(--r);font-family:var(--font-b);font-size:.85rem;
+  outline:none;transition:border-color .2s
+}
+.fgrp select:focus,.fgrp input:focus{border-color:var(--acc)}
+.fgrp input[type=range]{padding:5px 0;background:none;border:none;accent-color:var(--acc)}
+
+.btn{
+  background:linear-gradient(135deg,var(--acc),#4f46e5);
+  color:#fff;border:none;border-radius:var(--r);
+  padding:11px 28px;font-family:var(--font-h);font-weight:700;
+  font-size:.88rem;letter-spacing:.04em;cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;transition:all .2s
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(99,102,241,.35)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+#pred-result{display:none;animation:fadeUp .4s ease}
+
+.verdict{
+  border-radius:14px;padding:22px 26px;
+  display:flex;align-items:center;gap:18px;margin-bottom:18px
+}
+.verdict.ok{background:rgba(16,185,129,.07);border:1.5px solid rgba(16,185,129,.3)}
+.verdict.ko{background:rgba(239,68,68,.07);border:1.5px solid rgba(239,68,68,.3)}
+.vico{font-size:2.6rem}
+.vtext h2{font-family:var(--font-h);font-size:1.7rem;margin-bottom:3px}
+.vtext.gn h2{color:var(--green)}
+.vtext.rd h2{color:var(--red)}
+.vtext p{color:var(--t2);font-size:.86rem}
+
+/* ── PROBA BARS ───────────────────────────── */
+.pb-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.pb-emo{font-family:var(--font-m);font-size:.7rem;color:var(--t2);width:76px;flex-shrink:0;text-align:right}
+.pb-track{flex:1;height:7px;background:var(--s3);border-radius:4px;overflow:hidden}
+.pb-fill{height:100%;border-radius:4px;transition:width .8s ease}
+.pb-val{font-family:var(--font-m);font-size:.68rem;color:var(--t3);width:38px}
+
+/* ── INFO BOX ─────────────────────────────── */
+.ib{
+  background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);
+  border-radius:var(--r);padding:11px 14px;font-size:.83rem;color:var(--t2);
+  margin-bottom:18px;display:flex;align-items:center;gap:10px
+}
+.ib strong{color:var(--acc2)}
+
+/* ── SPINNER ──────────────────────────────── */
+.sp{display:inline-block;width:16px;height:16px;border:2px solid rgba(99,102,241,.3);border-top-color:var(--acc2);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── SKELETON ─────────────────────────────── */
+.sk{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200%;animation:shim 1.5s infinite;border-radius:6px;height:20px}
+@keyframes shim{from{background-position:200% 0}to{background-position:-200% 0}}
+
+@media(max-width:900px){
+  #sidebar{transform:translateX(-100%)}
+  #main{margin-left:0;padding:18px}
+  .g2,.g3,.g21{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════ SIDEBAR ══════════ -->
+<aside id="sidebar">
+  <div class="sb-logo">
+    <span class="ico">🎙️</span>
+    <h2>Emotion Recognition<br>from Speech</h2>
+    <p>CodeAlpha ML · Task 2</p>
+  </div>
+
+  <div class="sb-lbl">Navigation</div>
+
+  <a class="nav-item active" onclick="nav(this,'overview')">
+    <span class="ni">◈</span> Vue d'ensemble
+  </a>
+  <a class="nav-item" onclick="nav(this,'performance')">
+    <span class="ni">◎</span> Performance
+  </a>
+  <a class="nav-item" onclick="nav(this,'visualisations')">
+    <span class="ni">◉</span> Visualisations
+  </a>
+  <a class="nav-item" onclick="nav(this,'predict')">
+    <span class="ni">◈</span> Prédiction Live
+  </a>
+
+  <div class="sb-div"></div>
+
+  <div class="sb-sel-wrap">
+    <label>Modèle Actif</label>
+    <select id="gmodel" onchange="onModelChange()">
+      <option>Chargement…</option>
+    </select>
+  </div>
+
+  <div class="sb-foot">
+    Task 2 — Speech Emotions<br>
+    <a href="https://www.codealpha.tech" target="_blank">codealpha.tech</a>
+  </div>
+</aside>
+
+<!-- ══════════ MAIN ══════════ -->
+<main id="main">
+
+  <!-- ── OVERVIEW ── -->
+  <section id="page-overview" class="page active">
+    <div class="ph">
+      <div class="ey">◈ Dashboard Principal</div>
+      <h1>Vue d'ensemble</h1>
+      <p>Analyse des émotions vocales à partir de features MFCC — 8 émotions, 4 modèles comparés.</p>
+    </div>
+
+    <div id="kpi-grid" class="mg">
+      <div class="mc sk" style="height:80px"></div>
+      <div class="mc sk" style="height:80px"></div>
+      <div class="mc sk" style="height:80px"></div>
+      <div class="mc sk" style="height:80px"></div>
+    </div>
+
+    <div id="best-ib" class="ib" style="display:none"></div>
+
+    <div class="g2">
+      <div class="panel">
+        <div class="pt">Distribution des Émotions</div>
+        <div class="cw"><canvas id="chart-dist"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="pt">Comparaison Modèles</div>
+        <div class="cw"><canvas id="chart-compare"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="pt">Tableau des Performances</div>
+      <table class="dt" id="tbl-models">
+        <thead><tr>
+          <th>Modèle</th><th>Accuracy</th><th>F1-Score</th>
+          <th>CV Mean</th><th>CV Std</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="pt">Émotions Analysées</div>
+      <div id="emo-badges" style="padding:4px 0"></div>
+    </div>
+  </section>
+
+  <!-- ── PERFORMANCE ── -->
+  <section id="page-performance" class="page">
+    <div class="ph">
+      <div class="ey">◎ Évaluation</div>
+      <h1>Performance des Modèles</h1>
+      <p>Matrice de confusion, recall par émotion, cross-validation et rapport de classification.</p>
+    </div>
+
+    <div id="perf-kpi" class="mg"></div>
+
+    <div class="g2">
+      <div class="panel">
+        <div class="pt">Matrice de Confusion</div>
+        <div class="cm-scroll">
+          <table id="cm-table"></table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="pt">Recall par Émotion</div>
+        <div id="recall-bars" style="padding:4px 0"></div>
+      </div>
+    </div>
+
+    <div class="g2">
+      <div class="panel">
+        <div class="pt">Cross-Validation (5-fold)</div>
+        <div class="cw"><canvas id="chart-cv"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="pt">F1-Score par Émotion</div>
+        <div class="cw"><canvas id="chart-f1class"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="pt">Rapport de Classification Détaillé</div>
+      <div id="report-wrap" style="overflow-x:auto"></div>
+    </div>
+  </section>
+
+  <!-- ── VISUALISATIONS ── -->
+  <section id="page-visualisations" class="page">
+    <div class="ph">
+      <div class="ey">◉ Exploration</div>
+      <h1>Visualisations</h1>
+      <p>Profils MFCC par émotion, radar F1, et projection PCA 2D de l'espace des features.</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tb active" onclick="stab(this,'tab-mfcc')">🎵 Profils MFCC</button>
+      <button class="tb" onclick="stab(this,'tab-radar')">🕸️ Radar F1</button>
+      <button class="tb" onclick="stab(this,'tab-pca')">🔬 PCA 2D</button>
+    </div>
+
+    <div id="tab-mfcc" class="tc active">
+      <div class="g2" id="mfcc-grid"></div>
+    </div>
+
+    <div id="tab-radar" class="tc">
+      <div class="panel">
+        <div class="pt">F1 par Émotion — Radar</div>
+        <div class="radar-wrap"><canvas id="chart-radar"></canvas></div>
+      </div>
+    </div>
+
+    <div id="tab-pca" class="tc">
+      <div class="panel">
+        <div class="pt">Projection PCA 2D des Features MFCC</div>
+        <div id="pca-info" class="ib" style="margin-bottom:14px;display:none"></div>
+        <div class="cw cw-lg"><canvas id="chart-pca"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PREDICT ── -->
+  <section id="page-predict" class="page">
+    <div class="ph">
+      <div class="ey">◈ Scoring Live</div>
+      <h1>Prédiction Live</h1>
+      <p>Simulez une entrée audio et observez la prédiction du modèle en temps réel.</p>
+    </div>
+
+    <div class="panel">
+      <div class="pt">Paramètres de Simulation</div>
+      <div class="fg">
+        <div class="fgrp">
+          <label>Émotion Source (vérité terrain)</label>
+          <select id="p-emotion">
+            <option value="0">Neutral</option>
+            <option value="1">Calm</option>
+            <option value="2">Happy</option>
+            <option value="3">Sad</option>
+            <option value="4">Angry</option>
+            <option value="5">Fearful</option>
+            <option value="6">Disgust</option>
+            <option value="7">Surprised</option>
+          </select>
+        </div>
+        <div class="fgrp">
+          <label>Niveau de Bruit — <span id="v-noise" style="color:var(--acc2)">0.12</span></label>
+          <input type="range" id="p-noise" min="0" max="0.5" step="0.01" value="0.12"
+            oninput="document.getElementById('v-noise').textContent=parseFloat(this.value).toFixed(2)">
+        </div>
+      </div>
+      <div style="margin-top:18px">
+        <button class="btn" id="btn-pred" onclick="runPredict()">
+          <span id="btn-txt">🎙️ Analyser l'Émotion</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="pred-result">
+      <div id="verdict-box" class="verdict ok">
+        <div class="vico" id="v-ico">✅</div>
+        <div class="vtext gn" id="v-text">
+          <h2 id="v-title">–</h2>
+          <p id="v-sub">–</p>
+        </div>
+      </div>
+
+      <div class="g2">
+        <div class="panel">
+          <div class="pt">Probabilités par Émotion</div>
+          <div id="proba-bars"></div>
+        </div>
+        <div class="panel">
+          <div class="pt">Top 3 Prédictions</div>
+          <div id="top3" style="padding:4px 0"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ── STATE ──────────────────────────────── */
+const S = { models:[], best:'', current:'', perfLoaded:{}, visLoaded:false };
+
+const EMO_COLORS = ['#6366F1','#10B981','#F59E0B','#EF4444','#EC4899','#14B8A6','#8B5CF6','#F97316'];
+const MODEL_PAL  = {'SVM (RBF)':'#6366F1','MLP Neural Net':'#10B981','Random Forest':'#F59E0B','Gradient Boosting':'#EF4444'};
+
+const charts = {};
+
+/* ── INIT ───────────────────────────────── */
+async function init(){
+  const d = await api('/api/models');
+  S.models  = d.models;
+  S.best    = d.best_name;
+  S.current = d.best_name;
+  const sel = document.getElementById('gmodel');
+  sel.innerHTML = S.models.map(m => `<option value="${m}"${m===S.best?' selected':''}>${m}</option>`).join('');
+  loadOverview();
+}
+
+function onModelChange(){
+  S.current = document.getElementById('gmodel').value;
+  const p = document.getElementById('page-performance');
+  if(p.classList.contains('active')) loadPerformance(S.current);
+}
+
+/* ── NAV ────────────────────────────────── */
+function nav(el, page){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  if(page==='performance') loadPerformance(S.current);
+  if(page==='visualisations' && !S.visLoaded) loadVisualisations();
+}
+
+function stab(btn, id){
+  btn.closest('.tabs').querySelectorAll('.tb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  btn.closest('section').querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ── API ────────────────────────────────── */
+async function api(url, opts){
+  const r = await fetch(url, opts); return r.json();
+}
+
+/* ── OVERVIEW ───────────────────────────── */
+async function loadOverview(){
+  const d = await api('/api/overview');
+
+  const kDefs=[
+    {l:'Échantillons', v:d.n_samples.toLocaleString(),  c:'#6366F1'},
+    {l:'Features',     v:d.n_features,                   c:'#14B8A6'},
+    {l:'Émotions',     v:d.n_classes,                    c:'#F59E0B'},
+    {l:'Best Acc',     v:d.best_acc,                     c:'#10B981'},
+  ];
+  document.getElementById('kpi-grid').innerHTML = kDefs.map(k=>`
+    <div class="mc" style="--acc:${k.c}">
+      <div class="ml">${k.l}</div>
+      <div class="mv">${k.v}</div>
+    </div>`).join('');
+
+  const ib = document.getElementById('best-ib');
+  ib.style.display='flex';
+  ib.innerHTML = `🏆 Meilleur modèle : <strong>${d.best_name}</strong>&nbsp;·&nbsp; Accuracy <strong>${d.best_acc}</strong>&nbsp;·&nbsp; F1 <strong>${d.best_f1}</strong>`;
+
+  // Distribution doughnut
+  const ctx1 = document.getElementById('chart-dist').getContext('2d');
+  new Chart(ctx1,{
+    type:'doughnut',
+    data:{labels:d.emotions.map(e=>cap(e)),
+      datasets:[{data:d.emotions.map(e=>d.distribution[e]),
+        backgroundColor:EMO_COLORS,borderColor:var_('--bg'),borderWidth:3,hoverOffset:8}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#7b97ba',font:{family:'JetBrains Mono',size:10}}}}}
+  });
+
+  // Comparison bar
+  const ctx2 = document.getElementById('chart-compare').getContext('2d');
+  const names = d.table.map(r=>r.name);
+  const accs  = d.table.map(r=>r.accuracy);
+  const f1s   = d.table.map(r=>r.f1);
+  const cvs   = d.table.map(r=>r.cv_mean);
+  new Chart(ctx2,{
+    type:'bar',
+    data:{labels:names.map(n=>n.replace(' ','\n')),
+      datasets:[
+        {label:'Accuracy', data:accs, backgroundColor:'rgba(99,102,241,.75)',  borderRadius:4},
+        {label:'F1-Score', data:f1s,  backgroundColor:'rgba(16,185,129,.7)',   borderRadius:4},
+        {label:'CV-Acc',   data:cvs,  backgroundColor:'rgba(245,158,11,.7)',   borderRadius:4},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{ticks:{color:'#3d5475',font:{family:'JetBrains Mono',size:9}},grid:{color:'#0d1525'}},
+        y:{min:.3,max:1.05,ticks:{color:'#3d5475',font:{family:'JetBrains Mono',size:9}},grid:{color:'#0d1525'}}
+      },
+      plugins:{legend:{labels:{color:'#7b97ba',font:{family:'JetBrains Mono',size:10}}}}
+    }
+  });
+
+  // Table
+  const tb = document.querySelector('#tbl-models tbody');
+  tb.innerHTML = d.table.map(r=>`
+    <tr>
+      <td class="${r.is_best?'gold':''}">${r.name}${r.is_best?'<span class="badge-b">★ best</span>':''}</td>
+      <td>${r.accuracy}</td><td>${r.f1}</td>
+      <td>${r.cv_mean}</td><td>± ${r.cv_std}</td>
+    </tr>`).join('');
+
+  // Badges
+  document.getElementById('emo-badges').innerHTML =
+    d.emotions.map((e,i)=>`<span class="emo-badge"><span class="emo-dot" style="background:${EMO_COLORS[i]}"></span>${cap(e)}</span>`).join('');
+}
+
+/* ── PERFORMANCE ────────────────────────── */
+async function loadPerformance(model){
+  document.getElementById('perf-kpi').innerHTML='<div class="mc sk" style="height:75px"></div>'.repeat(4);
+
+  const d = await api(`/api/performance/${encodeURIComponent(model)}`);
+
+  const kDefs=[
+    {l:'Accuracy',  v:d.accuracy,  c:'#6366F1'},
+    {l:'F1-Score',  v:d.f1,        c:'#10B981'},
+    {l:'CV Mean',   v:d.cv_mean,   c:'#F59E0B'},
+    {l:'CV Std',    v:'± '+d.cv_std,c:'#EC4899'},
+  ];
+  document.getElementById('perf-kpi').innerHTML = kDefs.map(k=>`
+    <div class="mc" style="--acc:${k.c}">
+      <div class="ml">${k.l}</div>
+      <div class="mv">${k.v}</div>
+    </div>`).join('');
+
+  // Confusion matrix
+  const emotions = d.emotions;
+  const cm       = d.confusion_matrix;
+  const maxVal   = Math.max(...cm.flat());
+  let html = '<table id="cm-table"><thead><tr><th></th>';
+  html += emotions.map((e,i)=>`<th style="color:${d.emo_colors[i]}">${cap(e)}</th>`).join('');
+  html += '</tr></thead><tbody>';
+  for(let i=0;i<cm.length;i++){
+    html += `<tr><th style="color:${d.emo_colors[i]};text-align:right">${cap(emotions[i])}</th>`;
+    for(let j=0;j<cm[i].length;j++){
+      const v = cm[i][j];
+      const a = (v/maxVal)*0.8+0.05;
+      const diag = i===j;
+      const col  = diag?d.emo_colors[i]:'#ef4444';
+      const bg   = diag ? `rgba(${hexToRgb(d.emo_colors[i])},${a})` : (v>0?`rgba(239,68,68,${a*0.6})`:'');
+      html += `<td style="background:${bg};color:${v>0?(diag?'#e8edf5':'#fca5a5'):'#3d5475'};font-weight:${diag?'600':'400'}">${v}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  document.querySelector('.cm-scroll').innerHTML = html;
+
+  // Recall bars
+  const rb = document.getElementById('recall-bars');
+  rb.innerHTML = d.recall_per_class.map((v,i)=>`
+    <div class="rb-row">
+      <div class="rb-label">${cap(emotions[i])}</div>
+      <div class="rb-track"><div class="rb-fill" style="width:${(v*100).toFixed(1)}%;background:${d.emo_colors[i]}"></div></div>
+      <div class="rb-val">${(v*100).toFixed(1)}%</div>
+    </div>`).join('');
+
+  // CV boxplot → violin-ish with scatter
+  if(charts['cv']) charts['cv'].destroy();
+  const cvCtx = document.getElementById('chart-cv').getContext('2d');
+  const cvDs  = Object.entries(d.cv_boxplot).map(([name,vals],i)=>({
+    label: name,
+    data:  vals.map((v,j)=>({x:name,y:v})),
+    backgroundColor: Object.values(MODEL_PAL)[i]+'99',
+    borderColor: Object.values(MODEL_PAL)[i],
+    pointRadius:5, pointHoverRadius:7,
+  }));
+  charts['cv'] = new Chart(cvCtx,{
+    type:'scatter',
+    data:{datasets: cvDs},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{type:'category',labels:Object.keys(d.cv_boxplot),
+           ticks:{color:'#3d5475',font:{family:'JetBrains Mono',size:9}},grid:{color:'#0d1525'}},
+        y:{min:.3,max:1.05,ticks:{color:'#3d5475',font:{family:'JetBrains Mono',size:9}},grid:{color:'#0d1525'}}
+      },
+      plugins:{legend:{labels:{color:'#7b97ba',font:{family:'JetBrains Mono',size:10}}}}
+    }
+  });
+
+  // F1 per class bar
+  if(charts['f1c']) charts['f1c'].destroy();
+  const f1cCtx = document.getElementById('chart-f1class').getContext('2d');
+  charts['f1c'] = new Chart(f1cCtx,{
+    type:'bar',
+    data:{
+      labels:emotions.map(cap),
+      datasets:[{label:'F1-Score',data:d.f1_per_class,
+        backgroundColor:d.emo_colors.map(c=>c+'bb'),
+        borderColor:d.emo_colors,borderWidth:1,borderRadius:4}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{ticks:{color:'#3d5475',font:{family:'JetBrains Mono',size:9}},grid:{color:'#0d1525'}},
+        y:{min:0,max:1.05,ticks:{color:'#3d5475',font:{family:'JetBrains Mono',size:9}},grid:{color:'#0d1525'}}
+      },
+      plugins:{legend:{labels:{color:'#7b97ba',font:{family:'JetBrains Mono',size:10}}}}
+    }
+  });
+
+  // Classification report table
+  const rep = d.report;
+  const cls = d.emotions;
+  let rhtml = `<table class="dt"><thead><tr><th>Classe</th><th>Precision</th><th>Recall</th><th>F1-Score</th><th>Support</th></tr></thead><tbody>`;
+  cls.forEach((c,i)=>{
+    const r = rep[c];
+    if(!r) return;
+    rhtml += `<tr>
+      <td><span class="emo-dot" style="background:${d.emo_colors[i]};display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle"></span>${cap(c)}</td>
+      <td>${r.precision.toFixed(3)}</td><td>${r.recall.toFixed(3)}</td>
+      <td>${r['f1-score'].toFixed(3)}</td><td>${r.support}</td></tr>`;
+  });
+  const wa = rep['weighted avg'];
+  rhtml += `<tr style="border-top:2px solid var(--b2)">
+    <td style="color:var(--acc2);font-weight:600">Weighted Avg</td>
+    <td>${wa.precision.toFixed(3)}</td><td>${wa.recall.toFixed(3)}</td>
+    <td>${wa['f1-score'].toFixed(3)}</td><td>${wa.support}</td></tr>`;
+  rhtml += '</tbody></table>';
+  document.getElementById('report-wrap').innerHTML = rhtml;
+}
+
+/* ── VISUALISATIONS ─────────────────────── */
+async function loadVisualisations(){
+  S.visLoaded = true;
+
+  // MFCC profiles + radar: need performance data
+  const perf = await api(`/api/performance/${encodeURIComponent(S.current)}`);
+  const mfcc = await api('/api/mfcc_profiles');
+  const pca  = await api('/api/pca');
+
+  // MFCC profiles
+  const grid = document.getElementById('mfcc-grid');
+  grid.innerHTML = '';
+  mfcc.profiles.forEach(p=>{
+    if(!p.values.length) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'panel';
+    wrap.innerHTML = `<div class="pt" style="color:${p.color}">${cap(p.emotion)}</div><div class="cw cw-sm"><canvas id="mfc-${p.emotion}"></canvas></div>`;
+    grid.appendChild(wrap);
+    const ctx = document.getElementById(`mfc-${p.emotion}`).getContext('2d');
+    new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels:Array.from({length:p.values.length},(_,i)=>i+1),
+        datasets:[{label:'MFCC',data:p.values,
+          backgroundColor:p.color+'88',borderColor:p.color,borderWidth:1,borderRadius:2}]
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{ticks:{color:'#3d5475',maxTicksLimit:10,font:{size:8}},grid:{color:'#0d1525'}},
+          y:{ticks:{color:'#3d5475',font:{size:8}},grid:{color:'#0d1525'}}
+        }
+      }
+    });
+  });
+
+  // Radar F1
+  const emotions = perf.emotions;
+  const f1pc     = perf.f1_per_class;
+  const angles   = emotions.map((_,i)=>i);
+  if(charts['radar']) charts['radar'].destroy();
+  const rCtx = document.getElementById('chart-radar').getContext('2d');
+  charts['radar'] = new Chart(rCtx,{
+    type:'radar',
+    data:{
+      labels:emotions.map(cap),
+      datasets:[{
+        label:`F1 — ${S.current}`,
+        data:f1pc,
+        backgroundColor:'rgba(99,102,241,.2)',
+        borderColor:'#818cf8',borderWidth:2,
+        pointBackgroundColor:EMO_COLORS,pointRadius:5,
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{r:{
+        min:0,max:1,
+        ticks:{color:'#3d5475',backdropColor:'transparent',font:{family:'JetBrains Mono',size:9}},
+        grid:{color:'#1e2d4a'},
+        pointLabels:{color:'#7b97ba',font:{family:'JetBrains Mono',size:10}}
+      }},
+      plugins:{legend:{labels:{color:'#7b97ba',font:{family:'JetBrains Mono',size:10}}}}
+    }
+  });
+
+  // PCA scatter
+  document.getElementById('pca-info').style.display='flex';
+  document.getElementById('pca-info').innerHTML =
+    `Variance expliquée : PC1 <strong>${(pca.var_pc1*100).toFixed(1)}%</strong> · PC2 <strong>${(pca.var_pc2*100).toFixed(1)}%</strong> · Total <strong>${(pca.total_var*100).toFixed(1)}%</strong>`;
+
+  if(charts['pca']) charts['pca'].destroy();
+  const pCtx = document.getElementById('chart-pca').getContext('2d');
+  charts['pca'] = new Chart(pCtx,{
+    type:'scatter',
+    data:{datasets: pca.points.map(p=>({
+      label:cap(p.emotion),
+      data:p.x.map((x,i)=>({x,y:p.y[i]})),
+      backgroundColor:p.color+'66',
+      borderColor:p.color,
+      pointRadius:3,pointHoverRadius:5,
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#7b97ba',font:{family:'JetBrains Mono',size:10}}}},
+      scales:{
+        x:{title:{display:true,text:`PC1 (${(pca.var_pc1*100).toFixed(1)}%)`,color:'#3d5475',font:{family:'JetBrains Mono',size:10}},
+           ticks:{color:'#3d5475',font:{size:9}},grid:{color:'#0d1525'}},
+        y:{title:{display:true,text:`PC2 (${(pca.var_pc2*100).toFixed(1)}%)`,color:'#3d5475',font:{family:'JetBrains Mono',size:10}},
+           ticks:{color:'#3d5475',font:{size:9}},grid:{color:'#0d1525'}}
+      }
+    }
+  });
+}
+
+/* ── PREDICT ────────────────────────────── */
+async function runPredict(){
+  const btn = document.getElementById('btn-pred');
+  const txt = document.getElementById('btn-txt');
+  btn.disabled=true;
+  txt.innerHTML='<span class="sp"></span> Analyse…';
+
+  const emoId = parseInt(document.getElementById('p-emotion').value);
+  const noise = parseFloat(document.getElementById('p-noise').value);
+
+  const d = await api('/api/predict',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:S.current,emotion_id:emoId,noise})
+  });
+
+  btn.disabled=false;
+  txt.textContent='🎙️ Analyser l\'Émotion';
+
+  const rs = document.getElementById('pred-result');
+  rs.style.display='block';
+  rs.scrollIntoView({behavior:'smooth',block:'start'});
+
+  const vbox  = document.getElementById('verdict-box');
+  const vico  = document.getElementById('v-ico');
+  const vtxt  = document.getElementById('v-text');
+  const vtitle= document.getElementById('v-title');
+  const vsub  = document.getElementById('v-sub');
+
+  if(d.correct){
+    vbox.className='verdict ok';
+    vico.textContent='✅';
+    vtxt.className='vtext gn';
+    vtitle.textContent=`${cap(d.predicted_emotion)} — Correct !`;
+    vsub.textContent=`Le modèle a correctement identifié l'émotion "${cap(d.true_emotion)}".`;
+  } else {
+    vbox.className='verdict ko';
+    vico.textContent='❌';
+    vtxt.className='vtext rd';
+    vtitle.textContent=`${cap(d.predicted_emotion)} — Incorrect`;
+    vsub.textContent=`Vérité terrain : "${cap(d.true_emotion)}" · Prédit : "${cap(d.predicted_emotion)}".`;
+  }
+
+  // Proba bars
+  const emos = d.emotions;
+  const bars = document.getElementById('proba-bars');
+  bars.innerHTML = d.probabilities.map((p,i)=>{
+    const hi = emos[i]===d.predicted_emotion;
+    return `<div class="pb-row">
+      <div class="pb-emo" style="color:${hi?d.emo_colors[i]:'var(--t3)'}">${cap(emos[i])}</div>
+      <div class="pb-track"><div class="pb-fill" style="width:${(p*100).toFixed(1)}%;background:${d.emo_colors[i]}"></div></div>
+      <div class="pb-val">${(p*100).toFixed(1)}%</div>
+    </div>`;
+  }).join('');
+
+  // Top 3
+  const sorted = d.probabilities
+    .map((p,i)=>({p,i}))
+    .sort((a,b)=>b.p-a.p).slice(0,3);
+  document.getElementById('top3').innerHTML = sorted.map((s,rank)=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--s2);border-radius:8px;margin-bottom:8px;border:1px solid ${rank===0?d.emo_colors[s.i]+'66':'var(--b1)'}">
+      <span style="font-family:var(--font-m);font-size:.75rem;color:var(--t3);width:16px">#${rank+1}</span>
+      <span class="emo-dot" style="background:${d.emo_colors[s.i]}"></span>
+      <span style="flex:1;font-weight:500;color:${rank===0?d.emo_colors[s.i]:'var(--t1)'}">${cap(d.emotions[s.i])}</span>
+      <span style="font-family:var(--font-m);font-size:.8rem;color:${rank===0?d.emo_colors[s.i]:'var(--t3)'}">${(s.p*100).toFixed(2)}%</span>
+    </div>`).join('');
+}
+
+/* ── UTILS ──────────────────────────────── */
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+function var_(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function hexToRgb(hex){
+  const r=parseInt(hex.slice(1,3),16);
+  const g=parseInt(hex.slice(3,5),16);
+  const b=parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+
+/* ── START ───────────────────────────────── */
+init();
+</script>
+</body>
+</html>
