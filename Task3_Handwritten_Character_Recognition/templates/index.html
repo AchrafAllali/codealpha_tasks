@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Handwritten Recognition — CodeAlpha</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── RESET ──────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:     #0a0a0a;
+  --s1:     #111111;
+  --s2:     #181818;
+  --s3:     #1f1f1f;
+  --b1:     #2a2a2a;
+  --b2:     #363636;
+  --t1:     #f0f0f0;
+  --t2:     #888;
+  --t3:     #444;
+  --cyan:   #00f5d4;
+  --pink:   #f72585;
+  --yellow: #fee440;
+  --blue:   #00bbf9;
+  --violet: #9b5de5;
+  --orange: #fb5607;
+  --green:  #06d6a0;
+  --acc:    #00f5d4;
+  --acc-dim:rgba(0,245,212,.1);
+  --font-h: 'Barlow Condensed', sans-serif;
+  --font-b: 'Barlow', sans-serif;
+  --font-m: 'Space Mono', monospace;
+  --r:      6px;
+  --sw:     248px;
+}
+
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--t1);font-family:var(--font-b);min-height:100vh;overflow-x:hidden}
+
+/* grid bg */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,245,212,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,245,212,.03) 1px, transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;z-index:0
+}
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:var(--s1)}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+/* ── SIDEBAR ────────────────────────────── */
+#sidebar{
+  position:fixed;top:0;left:0;
+  width:var(--sw);height:100vh;
+  background:var(--s1);
+  border-right:1px solid var(--b1);
+  display:flex;flex-direction:column;
+  z-index:100
+}
+
+.sb-logo{padding:24px 20px 16px;border-bottom:1px solid var(--b1)}
+.sb-ico{font-size:1.8rem;display:block;margin-bottom:8px}
+.sb-logo h2{
+  font-family:var(--font-h);font-size:1.1rem;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;
+  color:var(--cyan);line-height:1.2
+}
+.sb-logo p{font-family:var(--font-m);font-size:.58rem;color:var(--t3);margin-top:4px;letter-spacing:.1em}
+
+.sb-lbl{font-family:var(--font-m);font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--t3);padding:16px 20px 6px}
+
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 20px;cursor:pointer;
+  color:var(--t2);font-size:.85rem;font-weight:500;
+  font-family:var(--font-b);
+  border-left:2px solid transparent;
+  transition:all .15s
+}
+.nav-item:hover{color:var(--t1);background:var(--s2)}
+.nav-item.active{color:var(--cyan);border-left-color:var(--cyan);background:var(--acc-dim)}
+.nav-item .ni{font-size:.85rem;width:16px;text-align:center;font-family:var(--font-m)}
+
+.sb-div{height:1px;background:var(--b1);margin:8px 20px}
+
+.sb-sel{padding:6px 16px 12px}
+.sb-sel label{font-family:var(--font-m);font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px}
+.sb-sel select{
+  width:100%;background:var(--s3);border:1px solid var(--b2);
+  color:var(--t1);padding:7px 10px;border-radius:var(--r);
+  font-family:var(--font-m);font-size:.72rem;outline:none;cursor:pointer;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23444' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+  transition:border-color .2s
+}
+.sb-sel select:focus{border-color:var(--cyan)}
+
+.sb-foot{margin-top:auto;padding:12px 20px;border-top:1px solid var(--b1);font-family:var(--font-m);font-size:.6rem;color:var(--t3)}
+.sb-foot a{color:var(--cyan);text-decoration:none}
+
+/* ── MAIN ───────────────────────────────── */
+#main{margin-left:var(--sw);min-height:100vh;padding:28px 32px;position:relative;z-index:1}
+
+.page{display:none}
+.page.active{display:block;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── PAGE HEADER ────────────────────────── */
+.ph{margin-bottom:24px}
+.ph .ey{font-family:var(--font-m);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan);margin-bottom:5px}
+.ph h1{font-family:var(--font-h);font-size:2.2rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;line-height:1}
+.ph p{color:var(--t2);font-size:.88rem;margin-top:6px;max-width:540px;line-height:1.6;font-weight:300}
+
+/* ── METRIC CARD ────────────────────────── */
+.mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px;margin-bottom:20px}
+.mc{
+  background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);
+  padding:12px 14px;position:relative;overflow:hidden;transition:all .2s;cursor:default
+}
+.mc:hover{border-color:var(--b2);transform:translateY(-1px)}
+.mc::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:var(--ac,var(--cyan));opacity:.6
+}
+.mc .ml{font-family:var(--font-m);font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.mc .mv{font-family:var(--font-m);font-size:1.5rem;color:var(--ac,var(--cyan));line-height:1}
+.mc .ms{font-size:.68rem;color:var(--t3);margin-top:3px}
+
+/* ── PANEL ──────────────────────────────── */
+.panel{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:16px 18px;margin-bottom:16px}
+.pt{
+  font-family:var(--font-m);font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--cyan);margin-bottom:12px;display:flex;align-items:center;gap:8px
+}
+.pt::after{content:'';flex:1;height:1px;background:var(--b1)}
+
+/* ── GRIDS ──────────────────────────────── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+
+/* ── TABLE ──────────────────────────────── */
+.dt{width:100%;border-collapse:collapse;font-size:.8rem}
+.dt th{font-family:var(--font-m);font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);padding:8px 10px;text-align:left;border-bottom:1px solid var(--b1)}
+.dt td{padding:8px 10px;border-bottom:1px solid var(--b1);color:var(--t2);font-family:var(--font-m);font-size:.75rem}
+.dt tr:last-child td{border-bottom:none}
+.dt tr:hover td{background:var(--s2)}
+.dt td.hi{color:var(--cyan)}
+.badge-b{background:rgba(0,245,212,.1);color:var(--cyan);border:1px solid rgba(0,245,212,.3);font-size:.55rem;padding:2px 6px;border-radius:3px;margin-left:6px}
+
+/* ── TABS ───────────────────────────────── */
+.tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--b1)}
+.tb{padding:8px 16px;font-family:var(--font-m);font-size:.7rem;letter-spacing:.06em;color:var(--t3);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;text-transform:uppercase}
+.tb:hover{color:var(--t1)}
+.tb.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.tc{display:none}
+.tc.active{display:block;animation:fadeUp .3s ease}
+
+/* ── CHART WRAPPER ──────────────────────── */
+.cw{position:relative;height:220px}
+.cw-lg{height:320px}
+.cw-sm{height:160px}
+
+/* ── DIGIT GALLERY ──────────────────────── */
+.digit-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.digit-label{font-family:var(--font-m);font-size:1.1rem;font-weight:700;width:24px;flex-shrink:0}
+.digit-imgs{display:flex;gap:6px}
+.digit-canvas{
+  image-rendering:pixelated;width:36px;height:36px;
+  border:1px solid var(--b2);border-radius:3px;background:var(--s3)
+}
+
+/* ── CONFUSION MATRIX ───────────────────── */
+.cm-scroll{overflow-x:auto;margin-top:4px}
+#cm-table{border-collapse:collapse;font-family:var(--font-m);font-size:.65rem}
+#cm-table th{padding:5px 8px;color:var(--t3);text-align:center;border:1px solid var(--b1)}
+#cm-table td{padding:5px 8px;text-align:center;border:1px solid var(--b1);min-width:40px}
+
+/* ── RECALL BARS ────────────────────────── */
+.rb-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.rb-label{font-family:var(--font-m);font-size:.7rem;color:var(--t2);width:20px;flex-shrink:0;text-align:right}
+.rb-track{flex:1;height:7px;background:var(--s3);border-radius:3px;overflow:hidden}
+.rb-fill{height:100%;border-radius:3px;background:var(--cyan);transition:width .8s ease}
+.rb-val{font-family:var(--font-m);font-size:.65rem;color:var(--t3);width:40px}
+
+/* ══════════════════════════════════════════
+   DRAWING CANVAS PAGE
+══════════════════════════════════════════ */
+.draw-layout{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start}
+
+.canvas-section{display:flex;flex-direction:column;align-items:center;gap:12px}
+
+#draw-canvas{
+  background:#000;
+  border:2px solid var(--b2);
+  border-radius:var(--r);
+  cursor:crosshair;
+  touch-action:none;
+  display:block;
+  transition:border-color .2s
+}
+#draw-canvas:hover,
+#draw-canvas.active-draw{border-color:var(--cyan);box-shadow:0 0 20px rgba(0,245,212,.15)}
+
+.canvas-controls{display:flex;gap:8px;width:100%}
+
+.btn{
+  border:1px solid var(--b2);border-radius:var(--r);
+  padding:9px 20px;font-family:var(--font-m);font-size:.7rem;
+  letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;transition:all .15s
+}
+.btn-primary{background:var(--cyan);color:#000;border-color:var(--cyan);font-weight:700}
+.btn-primary:hover{background:#00dfc0;box-shadow:0 0 16px rgba(0,245,212,.4)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+.btn-ghost{background:transparent;color:var(--t2)}
+.btn-ghost:hover{border-color:var(--b2);color:var(--t1);background:var(--s2)}
+.btn-danger{background:transparent;color:var(--t2);border-color:var(--b2)}
+.btn-danger:hover{color:var(--pink);border-color:var(--pink);background:rgba(247,37,133,.05)}
+
+/* Brush size */
+.brush-wrap{display:flex;align-items:center;gap:10px}
+.brush-wrap label{font-family:var(--font-m);font-size:.6rem;letter-spacing:.1em;color:var(--t3);text-transform:uppercase}
+.brush-wrap input[type=range]{accent-color:var(--cyan);width:80px}
+#v-brush{font-family:var(--font-m);font-size:.7rem;color:var(--cyan)}
+
+/* 8x8 preview */
+.preview-label{font-family:var(--font-m);font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+#preview-canvas{
+  image-rendering:pixelated;
+  border:1px solid var(--b2);border-radius:3px;
+  background:#000;display:block
+}
+
+/* Result panel */
+.result-section{display:flex;flex-direction:column;gap:12px}
+
+.big-prediction{
+  background:var(--s2);border:1px solid var(--b2);border-radius:var(--r);
+  padding:20px 24px;text-align:center;
+  transition:all .3s
+}
+.big-prediction.show{border-color:var(--cyan);box-shadow:0 0 24px rgba(0,245,212,.12)}
+.pred-digit{
+  font-family:var(--font-h);font-size:6rem;font-weight:700;
+  color:var(--cyan);line-height:1;
+  text-shadow:0 0 30px rgba(0,245,212,.5);
+  transition:all .3s
+}
+.pred-conf{font-family:var(--font-m);font-size:.75rem;color:var(--t2);margin-top:4px}
+
+/* proba bars for prediction */
+.pb-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.pb-digit{font-family:var(--font-m);font-size:.75rem;width:16px;flex-shrink:0;text-align:center}
+.pb-track{flex:1;height:6px;background:var(--s3);border-radius:3px;overflow:hidden}
+.pb-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.pb-val{font-family:var(--font-m);font-size:.65rem;color:var(--t3);width:40px}
+
+/* top3 */
+.top3-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;background:var(--s2);border-radius:var(--r);
+  border:1px solid var(--b1);margin-bottom:8px;transition:border-color .2s
+}
+.top3-item.first{border-color:rgba(0,245,212,.3)}
+.top3-rank{font-family:var(--font-m);font-size:.65rem;color:var(--t3);width:18px}
+.top3-digit{font-family:var(--font-h);font-size:1.8rem;font-weight:700;width:30px;line-height:1}
+.top3-pct{font-family:var(--font-m);font-size:.85rem;margin-left:auto}
+
+/* empty state */
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:30px 20px;color:var(--t3);text-align:center;
+  border:1px dashed var(--b1);border-radius:var(--r);
+  font-family:var(--font-m);font-size:.72rem;letter-spacing:.06em;
+  gap:8px;min-height:160px
+}
+.empty-state .ico{font-size:2rem;opacity:.4}
+
+/* ── INFO BANNER ────────────────────────── */
+.ib{background:rgba(0,245,212,.05);border:1px solid rgba(0,245,212,.15);border-radius:var(--r);padding:10px 14px;font-size:.82rem;color:var(--t2);margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.ib strong{color:var(--cyan)}
+
+/* ── SPINNER ────────────────────────────── */
+.sp{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,245,212,.2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── SKELETON ───────────────────────────── */
+.sk{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200%;animation:shim 1.5s infinite;border-radius:4px;height:16px}
+@keyframes shim{from{background-position:200% 0}to{background-position:-200% 0}}
+
+@media(max-width:900px){
+  #sidebar{transform:translateX(-100%)}
+  #main{margin-left:0;padding:16px}
+  .g2,.g3{grid-template-columns:1fr}
+  .draw-layout{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════ SIDEBAR ══════════ -->
+<aside id="sidebar">
+  <div class="sb-logo">
+    <span class="sb-ico">✍️</span>
+    <h2>Handwritten<br>Recognition</h2>
+    <p>CodeAlpha ML · Task 3</p>
+  </div>
+
+  <div class="sb-lbl">Navigation</div>
+  <a class="nav-item active" onclick="nav(this,'overview')"><span class="ni">▸</span> Vue d'ensemble</a>
+  <a class="nav-item" onclick="nav(this,'performance')"><span class="ni">▸</span> Performance</a>
+  <a class="nav-item" onclick="nav(this,'visualisations')"><span class="ni">▸</span> Visualisations</a>
+  <a class="nav-item" onclick="nav(this,'draw')"><span class="ni">▸</span> Dessiner & Prédire</a>
+
+  <div class="sb-div"></div>
+
+  <div class="sb-sel">
+    <label>Modèle Actif</label>
+    <select id="gmodel" onchange="onModelChange()">
+      <option>Chargement…</option>
+    </select>
+  </div>
+
+  <div class="sb-foot">
+    Task 3 — Handwritten Digits<br>
+    <a href="https://www.codealpha.tech" target="_blank">codealpha.tech</a>
+  </div>
+</aside>
+
+<!-- ══════════ MAIN ══════════ -->
+<main id="main">
+
+  <!-- ── OVERVIEW ── -->
+  <section id="page-overview" class="page active">
+    <div class="ph">
+      <div class="ey">// Task 3 — Overview</div>
+      <h1>Handwritten<br>Recognition</h1>
+      <p>Classification de chiffres manuscrits (0–9) via features pixel — sklearn digits dataset, 4 modèles comparés.</p>
+    </div>
+
+    <div id="kpi-grid" class="mg">
+      <div class="mc sk" style="height:72px"></div>
+      <div class="mc sk" style="height:72px"></div>
+      <div class="mc sk" style="height:72px"></div>
+      <div class="mc sk" style="height:72px"></div>
+    </div>
+
+    <div id="best-ib" class="ib" style="display:none"></div>
+
+    <div class="g2">
+      <div class="panel">
+        <div class="pt">Distribution des Classes</div>
+        <div class="cw cw-sm"><canvas id="chart-dist"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="pt">Comparaison Accuracy / F1</div>
+        <div class="cw cw-sm"><canvas id="chart-compare"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="pt">Tableau des Performances</div>
+      <table class="dt" id="tbl-models">
+        <thead><tr><th>Modèle</th><th>Accuracy</th><th>F1-Score</th><th>CV Mean</th><th>CV Std</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="pt">Galerie des Chiffres (Exemples du Dataset)</div>
+      <div id="digit-gallery"></div>
+    </div>
+  </section>
+
+  <!-- ── PERFORMANCE ── -->
+  <section id="page-performance" class="page">
+    <div class="ph">
+      <div class="ey">// Task 3 — Performance</div>
+      <h1>Évaluation<br>des Modèles</h1>
+      <p>Matrice de confusion 10×10, recall par chiffre, cross-validation et rapport de classification.</p>
+    </div>
+
+    <div id="perf-kpi" class="mg"></div>
+
+    <div class="g2">
+      <div class="panel">
+        <div class="pt">Matrice de Confusion</div>
+        <div class="cm-scroll"><table id="cm-table"></table></div>
+      </div>
+      <div class="panel">
+        <div class="pt">Recall par Chiffre</div>
+        <div id="recall-bars" style="padding:2px 0"></div>
+      </div>
+    </div>
+
+    <div class="g2">
+      <div class="panel">
+        <div class="pt">F1-Score par Chiffre</div>
+        <div class="cw"><canvas id="chart-f1class"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="pt">Cross-Validation (3-fold)</div>
+        <div class="cw"><canvas id="chart-cv"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="pt">Rapport de Classification</div>
+      <div id="report-wrap" style="overflow-x:auto"></div>
+    </div>
+  </section>
+
+  <!-- ── VISUALISATIONS ── -->
+  <section id="page-visualisations" class="page">
+    <div class="ph">
+      <div class="ey">// Task 3 — Visualisations</div>
+      <h1>Exploration<br>des Features</h1>
+      <p>Projection PCA 2D de l'espace pixel et histogrammes d'intensité par classe.</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tb active" onclick="stab(this,'tab-pca')">◈ PCA 2D</button>
+      <button class="tb" onclick="stab(this,'tab-hist')">◉ Intensité Pixels</button>
+    </div>
+
+    <div id="tab-pca" class="tc active">
+      <div class="panel">
+        <div class="pt">Projection PCA 2D — Espace Pixel</div>
+        <div id="pca-info" class="ib" style="display:none;margin-bottom:12px"></div>
+        <div class="cw cw-lg"><canvas id="chart-pca"></canvas></div>
+      </div>
+    </div>
+
+    <div id="tab-hist" class="tc">
+      <div class="g2" id="hist-grid"></div>
+    </div>
+  </section>
+
+  <!-- ── DRAW ── -->
+  <section id="page-draw" class="page">
+    <div class="ph">
+      <div class="ey">// Task 3 — Live Demo</div>
+      <h1>Dessiner<br>&amp; Prédire</h1>
+      <p>Dessinez un chiffre (0–9) dans le canvas — le modèle prédit en temps réel.</p>
+    </div>
+
+    <div class="draw-layout">
+      <!-- Canvas zone -->
+      <div class="canvas-section">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:280px;margin-bottom:6px">
+          <div class="brush-wrap">
+            <label>Taille</label>
+            <input type="range" id="brush-size" min="12" max="40" value="22"
+              oninput="document.getElementById('v-brush').textContent=this.value;updateBrush()">
+            <span id="v-brush">22</span>
+          </div>
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:.6rem" onclick="toggleEraser()" id="btn-eraser">Gomme</button>
+        </div>
+
+        <canvas id="draw-canvas" width="280" height="280"></canvas>
+
+        <div class="canvas-controls">
+          <button class="btn btn-danger" onclick="clearCanvas()" style="flex:1">✕ Effacer</button>
+          <button class="btn btn-primary" id="btn-pred" onclick="predict()" style="flex:2">
+            <span id="btn-pred-txt">⟶ Prédire</span>
+          </button>
+        </div>
+
+        <div style="margin-top:8px;text-align:center">
+          <div class="preview-label">Aperçu 8×8 envoyé au modèle</div>
+          <canvas id="preview-canvas" width="8" height="8" style="width:64px;height:64px"></canvas>
+          <div style="font-family:var(--font-m);font-size:.55rem;color:var(--t3);margin-top:6px;line-height:1.5">
+            Dessinez grand & centré<br>pour de meilleurs résultats
+          </div>
+        </div>
+      </div>
+
+      <!-- Result zone -->
+      <div class="result-section">
+        <div class="panel" style="margin-bottom:0">
+          <div class="pt">Résultat</div>
+          <div class="big-prediction" id="big-pred">
+            <div class="pred-digit" id="pred-digit">?</div>
+            <div class="pred-conf" id="pred-conf">Dessinez un chiffre puis cliquez Prédire</div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:0">
+          <div class="pt">Probabilités</div>
+          <div id="proba-bars">
+            <div class="empty-state">
+              <span class="ico">📊</span>
+              Aucune prédiction encore
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:0">
+          <div class="pt">Top 3</div>
+          <div id="top3-wrap">
+            <div class="empty-state">
+              <span class="ico">🏆</span>
+              En attente de prédiction
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ── STATE ──────────────────────────────── */
+const S   = { models:[], best:'', current:'', visLoaded:false, perfLoaded:false };
+const CH  = {};
+const CLR = ['#00f5d4','#f72585','#fee440','#00bbf9','#9b5de5',
+             '#f15bb5','#fb5607','#3a86ff','#06d6a0','#ffbe0b'];
+
+/* ── INIT ───────────────────────────────── */
+async function init(){
+  const d = await get('/api/models');
+  S.models = d.models; S.best = d.best_name; S.current = d.best_name;
+  const sel = document.getElementById('gmodel');
+  sel.innerHTML = S.models.map(m=>`<option value="${m}"${m===S.best?' selected':''}>${m}</option>`).join('');
+  loadOverview();
+}
+function onModelChange(){
+  S.current = document.getElementById('gmodel').value;
+  if(document.getElementById('page-performance').classList.contains('active'))
+    loadPerformance(S.current);
+}
+
+/* ── NAV ────────────────────────────────── */
+function nav(el, page){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  if(page==='performance') loadPerformance(S.current);
+  if(page==='visualisations'&&!S.visLoaded) loadVisualisations();
+  if(page==='draw'){
+    // Always re-init so canvas is fresh after potential display:none
+    setTimeout(()=>{ initCanvas(); }, 30);
+  }
+}
+function stab(btn, id){
+  btn.closest('.tabs').querySelectorAll('.tb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  btn.closest('section').querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+const get  = url => fetch(url).then(r=>r.json());
+const post = (url,body) => fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());
+
+/* ── OVERVIEW ───────────────────────────── */
+async function loadOverview(){
+  const d = await get('/api/overview');
+
+  document.getElementById('kpi-grid').innerHTML = [
+    {l:'Échantillons', v:d.n_samples,  ac:'#00f5d4'},
+    {l:'Features',     v:d.n_features, ac:'#00bbf9'},
+    {l:'Classes',      v:d.n_classes,  ac:'#fee440'},
+    {l:'Best Acc',     v:d.best_acc,   ac:'#06d6a0'},
+  ].map(k=>`<div class="mc" style="--ac:${k.ac}"><div class="ml">${k.l}</div><div class="mv">${k.v}</div></div>`).join('');
+
+  const ib = document.getElementById('best-ib');
+  ib.style.display='flex';
+  ib.innerHTML=`▸ Meilleur modèle : <strong>${d.best_name}</strong> &nbsp;·&nbsp; Accuracy <strong>${d.best_acc}</strong> &nbsp;·&nbsp; F1 <strong>${d.best_f1}</strong>`;
+
+  // Distribution bar
+  const c1 = document.getElementById('chart-dist').getContext('2d');
+  new Chart(c1,{type:'bar',
+    data:{labels:Object.keys(d.dist),
+      datasets:[{label:'Échantillons',data:Object.values(d.dist),
+        backgroundColor:CLR.map(c=>c+'99'),borderColor:CLR,borderWidth:1,borderRadius:3}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#444',font:{family:'Space Mono',size:9}},grid:{color:'#1f1f1f'}},
+              y:{ticks:{color:'#444',font:{family:'Space Mono',size:9}},grid:{color:'#1f1f1f'}}}}
+  });
+
+  // Compare bar
+  const c2 = document.getElementById('chart-compare').getContext('2d');
+  new Chart(c2,{type:'bar',
+    data:{labels:d.table.map(r=>r.name.replace(' ','\n')),
+      datasets:[
+        {label:'Accuracy',data:d.table.map(r=>r.accuracy),backgroundColor:'rgba(0,245,212,.7)',borderRadius:3},
+        {label:'F1-Score',data:d.table.map(r=>r.f1),backgroundColor:'rgba(247,37,133,.6)',borderRadius:3},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{x:{ticks:{color:'#444',font:{family:'Space Mono',size:8}},grid:{color:'#1f1f1f'}},
+              y:{min:.5,max:1.05,ticks:{color:'#444',font:{family:'Space Mono',size:9}},grid:{color:'#1f1f1f'}}},
+      plugins:{legend:{labels:{color:'#888',font:{family:'Space Mono',size:9}}}}}
+  });
+
+  // Table
+  document.querySelector('#tbl-models tbody').innerHTML = d.table.map(r=>`
+    <tr>
+      <td class="${r.is_best?'hi':''}">${r.name}${r.is_best?'<span class="badge-b">best</span>':''}</td>
+      <td>${r.accuracy}</td><td>${r.f1}</td>
+      <td>${r.cv_mean}</td><td>${r.cv_std==='—'?'—':'± '+r.cv_std}</td>
+    </tr>`).join('');
+
+  // Digit gallery
+  const gallery = document.getElementById('digit-gallery');
+  gallery.innerHTML = '';
+  for(let d2=0; d2<10; d2++){
+    const row = document.createElement('div');
+    row.className = 'digit-row';
+    row.innerHTML = `<div class="digit-label" style="color:${CLR[d2]}">${d2}</div><div class="digit-imgs" id="drow-${d2}"></div>`;
+    gallery.appendChild(row);
+    const imgs = document.getElementById(`drow-${d2}`);
+    const samples = d.samples[String(d2)] || [];
+    samples.forEach(grid=>{
+      const cnv = document.createElement('canvas');
+      cnv.width=8; cnv.height=8; cnv.className='digit-canvas';
+      const ctx = cnv.getContext('2d');
+      const img = ctx.createImageData(8,8);
+      for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+        const v = Math.round(grid[r][c]/16*255);
+        const i=(r*8+c)*4;
+        img.data[i]=v; img.data[i+1]=v; img.data[i+2]=v; img.data[i+3]=255;
+      }
+      ctx.putImageData(img,0,0);
+      imgs.appendChild(cnv);
+    });
+  }
+}
+
+/* ── PERFORMANCE ────────────────────────── */
+async function loadPerformance(model){
+  document.getElementById('perf-kpi').innerHTML='<div class="mc sk" style="height:68px"></div>'.repeat(4);
+
+  const d = await get(`/api/performance/${encodeURIComponent(model)}`);
+
+  document.getElementById('perf-kpi').innerHTML=[
+    {l:'Accuracy', v:d.accuracy, ac:'#00f5d4'},
+    {l:'F1-Score', v:d.f1,       ac:'#06d6a0'},
+    {l:'CV Mean',  v:d.cv_mean,  ac:'#00bbf9'},
+    {l:'CV Std',   v:'±'+d.cv_std,ac:'#fee440'},
+  ].map(k=>`<div class="mc" style="--ac:${k.ac}"><div class="ml">${k.l}</div><div class="mv">${k.v}</div></div>`).join('');
+
+  // Confusion matrix
+  const cm=d.confusion_matrix, maxV=Math.max(...cm.flat());
+  let html='<table id="cm-table"><thead><tr><th></th>';
+  html+=Array.from({length:10},(_,i)=>`<th style="color:${CLR[i]}">${i}</th>`).join('');
+  html+='</tr></thead><tbody>';
+  for(let i=0;i<10;i++){
+    html+=`<tr><th style="color:${CLR[i]};text-align:right">${i}</th>`;
+    for(let j=0;j<10;j++){
+      const v=cm[i][j], a=v/maxV;
+      const bg=i===j?`rgba(0,245,212,${a*.75+.05})`:(v>0?`rgba(247,37,133,${a*.5})`:'');
+      const col=v>0?(i===j?'#f0f0f0':'#f78fb3'):'#2a2a2a';
+      html+=`<td style="background:${bg};color:${col};font-weight:${i===j?700:400}">${v}</td>`;
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table>';
+  document.querySelector('.cm-scroll').innerHTML=html;
+
+  // Recall bars
+  document.getElementById('recall-bars').innerHTML=d.recall_per_class.map((v,i)=>`
+    <div class="rb-row">
+      <div class="rb-label" style="color:${CLR[i]}">${i}</div>
+      <div class="rb-track"><div class="rb-fill" style="width:${(v*100).toFixed(1)}%;background:${CLR[i]}"></div></div>
+      <div class="rb-val">${(v*100).toFixed(1)}%</div>
+    </div>`).join('');
+
+  // F1 per class
+  if(CH.f1c) CH.f1c.destroy();
+  CH.f1c=new Chart(document.getElementById('chart-f1class').getContext('2d'),{
+    type:'bar',
+    data:{labels:Array.from({length:10},(_,i)=>String(i)),
+      datasets:[{label:'F1-Score',data:d.f1_per_class,
+        backgroundColor:CLR.map(c=>c+'aa'),borderColor:CLR,borderWidth:1,borderRadius:3}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#444',font:{family:'Space Mono',size:9}},grid:{color:'#1f1f1f'}},
+              y:{min:0,max:1.05,ticks:{color:'#444',font:{family:'Space Mono',size:9}},grid:{color:'#1f1f1f'}}}}
+  });
+
+  // CV scatter
+  if(CH.cv) CH.cv.destroy();
+  const MODEL_CLR={'MLP Neural Net':'#00f5d4','SVM (RBF)':'#f72585','Random Forest':'#fee440','Logistic Regression':'#00bbf9'};
+  CH.cv=new Chart(document.getElementById('chart-cv').getContext('2d'),{
+    type:'scatter',
+    data:{datasets:Object.entries(d.cv_boxplot).map(([name,vals])=>({
+      label:name,
+      data:vals.map(v=>({x:name,y:v})),
+      backgroundColor:MODEL_CLR[name]+'88',borderColor:MODEL_CLR[name],pointRadius:6,pointHoverRadius:8,
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{type:'category',labels:Object.keys(d.cv_boxplot),
+           ticks:{color:'#444',font:{family:'Space Mono',size:8}},grid:{color:'#1f1f1f'}},
+        y:{min:.5,max:1.05,ticks:{color:'#444',font:{family:'Space Mono',size:9}},grid:{color:'#1f1f1f'}}
+      },
+      plugins:{legend:{labels:{color:'#888',font:{family:'Space Mono',size:9}}}}}
+  });
+
+  // Classification report
+  const rep=d.report;
+  let rhtml=`<table class="dt"><thead><tr><th>Chiffre</th><th>Precision</th><th>Recall</th><th>F1</th><th>Support</th></tr></thead><tbody>`;
+  for(let i=0;i<10;i++){
+    const r=rep[String(i)];
+    if(!r)continue;
+    rhtml+=`<tr>
+      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${CLR[i]};vertical-align:middle;margin-right:6px"></span>${i}</td>
+      <td>${r.precision.toFixed(3)}</td><td>${r.recall.toFixed(3)}</td>
+      <td>${r['f1-score'].toFixed(3)}</td><td>${r.support}</td></tr>`;
+  }
+  const wa=rep['weighted avg'];
+  rhtml+=`<tr style="border-top:2px solid var(--b2)"><td style="color:var(--cyan)">Weighted Avg</td>
+    <td>${wa.precision.toFixed(3)}</td><td>${wa.recall.toFixed(3)}</td>
+    <td>${wa['f1-score'].toFixed(3)}</td><td>${wa.support}</td></tr></tbody></table>`;
+  document.getElementById('report-wrap').innerHTML=rhtml;
+}
+
+/* ── VISUALISATIONS ─────────────────────── */
+async function loadVisualisations(){
+  S.visLoaded=true;
+  const pca=await get('/api/pca');
+
+  // PCA
+  document.getElementById('pca-info').style.display='flex';
+  document.getElementById('pca-info').innerHTML=
+    `PC1 <strong>${(pca.var_pc1*100).toFixed(1)}%</strong> · PC2 <strong>${(pca.var_pc2*100).toFixed(1)}%</strong> · Total <strong>${(pca.total_var*100).toFixed(1)}%</strong>`;
+
+  if(CH.pca) CH.pca.destroy();
+  CH.pca=new Chart(document.getElementById('chart-pca').getContext('2d'),{
+    type:'scatter',
+    data:{datasets:pca.points.map(p=>({
+      label:String(p.digit),
+      data:p.x.map((x,i)=>({x,y:p.y[i]})),
+      backgroundColor:p.color+'55',borderColor:p.color,pointRadius:3,pointHoverRadius:5,
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#888',font:{family:'Space Mono',size:9}}}},
+      scales:{
+        x:{title:{display:true,text:`PC1 (${(pca.var_pc1*100).toFixed(1)}%)`,color:'#444',font:{family:'Space Mono',size:9}},
+           ticks:{color:'#444',font:{size:8}},grid:{color:'#1f1f1f'}},
+        y:{title:{display:true,text:`PC2 (${(pca.var_pc2*100).toFixed(1)}%)`,color:'#444',font:{family:'Space Mono',size:9}},
+           ticks:{color:'#444',font:{size:8}},grid:{color:'#1f1f1f'}}
+      }}
+  });
+
+  // Pixel intensity histograms (simulated from PCA data)
+  const hg=document.getElementById('hist-grid');
+  hg.innerHTML='';
+  for(let d=0;d<10;d++){
+    const wrap=document.createElement('div');
+    wrap.className='panel';
+    wrap.innerHTML=`<div class="pt" style="color:${CLR[d]}">Chiffre ${d}</div><div class="cw cw-sm"><canvas id="h${d}"></canvas></div>`;
+    hg.appendChild(wrap);
+    const pts=pca.points[d];
+    new Chart(document.getElementById(`h${d}`).getContext('2d'),{
+      type:'scatter',
+      data:{datasets:[{label:`${d}`,data:pts.x.map((x,i)=>({x,y:pts.y[i]})),
+        backgroundColor:CLR[d]+'66',borderColor:CLR[d],pointRadius:2}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{x:{ticks:{color:'#444',font:{size:8},maxTicksLimit:5},grid:{color:'#1f1f1f'}},
+                y:{ticks:{color:'#444',font:{size:8},maxTicksLimit:5},grid:{color:'#1f1f1f'}}}}
+    });
+  }
+}
+
+/* ══════════════════════════════════════════
+   DRAWING CANVAS  —  fixed
+══════════════════════════════════════════ */
+let _cnv=null, _ctx=null, _drawing=false, _lastX=0, _lastY=0;
+let _brushSize=22, _isEraser=false, _canvasReady=false;
+
+function initCanvas(){
+  _cnv = document.getElementById('draw-canvas');
+  _ctx = _cnv.getContext('2d');
+
+  /* Set internal resolution explicitly */
+  _cnv.width  = 280;
+  _cnv.height = 280;
+
+  /* Fill black background */
+  _ctx.fillStyle = '#000';
+  _ctx.fillRect(0, 0, 280, 280);
+
+  /* Base stroke settings */
+  _ctx.lineCap   = 'round';
+  _ctx.lineJoin  = 'round';
+  _ctx.lineWidth = _brushSize;
+
+  if(_canvasReady) return;   // events already attached
+  _canvasReady = true;
+
+  /* Mouse events */
+  _cnv.addEventListener('mousedown',  _mdown);
+  _cnv.addEventListener('mousemove',  _mmove);
+  _cnv.addEventListener('mouseup',    _mup);
+  _cnv.addEventListener('mouseleave', _mup);
+
+  /* Touch events */
+  _cnv.addEventListener('touchstart', e=>{ e.preventDefault(); _mdown(e.touches[0]); }, {passive:false});
+  _cnv.addEventListener('touchmove',  e=>{ e.preventDefault(); _mmove(e.touches[0]); }, {passive:false});
+  _cnv.addEventListener('touchend',   e=>{ e.preventDefault(); _mup();               }, {passive:false});
+}
+
+/* Coordinate helper — accounts for canvas CSS vs pixel size */
+function _getXY(e){
+  const r  = _cnv.getBoundingClientRect();
+  const sx = _cnv.width  / r.width;
+  const sy = _cnv.height / r.height;
+  return {
+    x: (e.clientX - r.left) * sx,
+    y: (e.clientY - r.top)  * sy
+  };
+}
+
+function _mdown(e){
+  _drawing = true;
+  _cnv.classList.add('active-draw');
+  const {x,y} = _getXY(e);
+  _lastX = x; _lastY = y;
+
+  /* Paint a dot on click */
+  _ctx.fillStyle = _isEraser ? '#000' : '#fff';
+  _ctx.beginPath();
+  _ctx.arc(x, y, _ctx.lineWidth / 2, 0, Math.PI*2);
+  _ctx.fill();
+  _updatePreview();
+}
+
+function _mmove(e){
+  if(!_drawing) return;
+  const {x,y} = _getXY(e);
+
+  _ctx.strokeStyle = _isEraser ? '#000' : '#fff';
+  _ctx.lineWidth   = _brushSize;
+  _ctx.beginPath();
+  _ctx.moveTo(_lastX, _lastY);
+  _ctx.lineTo(x, y);
+  _ctx.stroke();
+
+  _lastX = x; _lastY = y;
+  _updatePreview();
+}
+
+function _mup(){
+  _drawing = false;
+  _cnv.classList.remove('active-draw');
+  _updatePreview();
+}
+
+function updateBrush(){
+  _brushSize = parseInt(document.getElementById('brush-size').value);
+  if(_ctx) _ctx.lineWidth = _brushSize;
+}
+
+function toggleEraser(){
+  _isEraser = !_isEraser;
+  const btn = document.getElementById('btn-eraser');
+  btn.style.color       = _isEraser ? 'var(--cyan)' : '';
+  btn.style.borderColor = _isEraser ? 'var(--cyan)' : '';
+}
+
+function clearCanvas(){
+  if(!_ctx){ initCanvas(); return; }
+  _ctx.fillStyle = '#000';
+  _ctx.fillRect(0, 0, 280, 280);
+  _updatePreview();
+  resetResult();
+}
+
+function _updatePreview(){
+  /* Show processed 8×8 in real time using same pipeline as getPixels */
+  const mid  = document.createElement('canvas');
+  mid.width  = 56; mid.height = 56;
+  const mCtx = mid.getContext('2d');
+  mCtx.imageSmoothingEnabled = true;
+  mCtx.drawImage(_cnv, 0, 0, 56, 56);
+  const mData = mCtx.getImageData(0, 0, 56, 56).data;
+  let minX=56,maxX=0,minY=56,maxY=0,has=false;
+  for(let y=0;y<56;y++) for(let x=0;x<56;x++){
+    const i=(y*56+x)*4, lum=mData[i]*.299+mData[i+1]*.587+mData[i+2]*.114;
+    if(lum>15){has=true;if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;}
+  }
+  const prev=document.getElementById('preview-canvas');
+  const pCtx=prev.getContext('2d');
+  pCtx.fillStyle='#000'; pCtx.fillRect(0,0,8,8);
+  if(has){
+    const pad=3,sw=maxX-minX+1,sh=maxY-minY+1,sq=Math.max(sw,sh);
+    const ox=Math.max(0,minX-Math.floor((sq-sw)/2)-pad);
+    const oy=Math.max(0,minY-Math.floor((sq-sh)/2)-pad);
+    const sqp=Math.min(sq+pad*2,56-Math.min(ox,oy));
+    pCtx.imageSmoothingEnabled=true;
+    pCtx.drawImage(mid,ox,oy,sqp,sqp,0,0,8,8);
+  }
+}
+
+function getPixels(){
+  /* ── Step 1 : render drawing to 56×56 intermediate (better quality) ── */
+  const mid  = document.createElement('canvas');
+  mid.width  = 56; mid.height = 56;
+  const mCtx = mid.getContext('2d');
+  mCtx.imageSmoothingEnabled    = true;
+  mCtx.imageSmoothingQuality    = 'high';
+  mCtx.drawImage(_cnv, 0, 0, 56, 56);
+
+  const mData = mCtx.getImageData(0, 0, 56, 56).data;
+
+  /* ── Step 2 : find bounding box of drawn content ── */
+  let minX=56, maxX=0, minY=56, maxY=0, hasContent=false;
+  for(let y=0; y<56; y++){
+    for(let x=0; x<56; x++){
+      const i   = (y*56+x)*4;
+      const lum = mData[i]*0.299 + mData[i+1]*0.587 + mData[i+2]*0.114;
+      if(lum > 15){
+        hasContent = true;
+        if(x < minX) minX=x; if(x > maxX) maxX=x;
+        if(y < minY) minY=y; if(y > maxY) maxY=y;
+      }
+    }
+  }
+
+  /* ── Step 3 : crop to bounding box (+ padding), resize to 8×8 ── */
+  const prev = document.getElementById('preview-canvas');
+  const pCtx = prev.getContext('2d');
+  pCtx.fillStyle = '#000';
+  pCtx.fillRect(0, 0, 8, 8);
+
+  if(hasContent){
+    const pad = 3;
+    minX = Math.max(0, minX-pad); maxX = Math.min(55, maxX+pad);
+    minY = Math.max(0, minY-pad); maxY = Math.min(55, maxY+pad);
+    const sw = maxX - minX + 1;
+    const sh = maxY - minY + 1;
+    /* make it square to preserve aspect ratio */
+    const sq = Math.max(sw, sh);
+    const ox = minX - Math.floor((sq-sw)/2);
+    const oy = minY - Math.floor((sq-sh)/2);
+    pCtx.imageSmoothingEnabled   = true;
+    pCtx.imageSmoothingQuality   = 'high';
+    pCtx.drawImage(mid, ox, oy, sq, sq, 0, 0, 8, 8);
+  }
+
+  /* ── Step 4 : extract pixels + normalize contrast ── */
+  const imgData = pCtx.getImageData(0, 0, 8, 8).data;
+  let pixels = [];
+  for(let i=0; i<64; i++){
+    const r = imgData[i*4], g = imgData[i*4+1], b = imgData[i*4+2];
+    pixels.push((r*0.299 + g*0.587 + b*0.114) / 255.0);
+  }
+
+  /* normalize so max pixel = 1.0  (matches sklearn digits range 0–1) */
+  const maxVal = Math.max(...pixels, 0.001);
+  pixels = pixels.map(p => p / maxVal);
+
+  return pixels;
+}
+
+function resetResult(){
+  document.getElementById('pred-digit').textContent='?';
+  document.getElementById('pred-digit').style.color='var(--cyan)';
+  document.getElementById('pred-digit').style.textShadow='';
+  document.getElementById('pred-conf').textContent='Dessinez un chiffre puis cliquez Prédire';
+  document.getElementById('big-pred').classList.remove('show');
+  document.getElementById('proba-bars').innerHTML=`<div class="empty-state"><span class="ico">📊</span>Aucune prédiction encore</div>`;
+  document.getElementById('top3-wrap').innerHTML=`<div class="empty-state"><span class="ico">🏆</span>En attente de prédiction</div>`;
+}
+
+async function predict(){
+  const btn=document.getElementById('btn-pred');
+  const txt=document.getElementById('btn-pred-txt');
+  btn.disabled=true;
+  txt.innerHTML='<span class="sp"></span> Analyse…';
+
+  const pixels=getPixels();
+  const d=await post('/api/predict',{model:S.current,pixels});
+
+  btn.disabled=false;
+  txt.textContent='⟶ Prédire';
+
+  // Big prediction
+  const digitEl=document.getElementById('pred-digit');
+  const confEl =document.getElementById('pred-conf');
+  digitEl.textContent=d.prediction;
+  digitEl.style.color=CLR[d.prediction];
+  digitEl.style.textShadow=`0 0 40px ${CLR[d.prediction]}88`;
+  confEl.textContent=`Confiance : ${(d.probabilities[d.prediction]*100).toFixed(1)}%`;
+  document.getElementById('big-pred').classList.add('show');
+
+  // Proba bars
+  document.getElementById('proba-bars').innerHTML=d.probabilities.map((p,i)=>`
+    <div class="pb-row">
+      <div class="pb-digit" style="color:${CLR[i]}">${i}</div>
+      <div class="pb-track"><div class="pb-fill" style="width:${(p*100).toFixed(1)}%;background:${CLR[i]}"></div></div>
+      <div class="pb-val">${(p*100).toFixed(1)}%</div>
+    </div>`).join('');
+
+  // Top 3
+  document.getElementById('top3-wrap').innerHTML=d.top3.map((t,rank)=>`
+    <div class="top3-item${rank===0?' first':''}">
+      <div class="top3-rank">#${rank+1}</div>
+      <div class="top3-digit" style="color:${t.color}">${t.digit}</div>
+      <div style="flex:1;font-family:var(--font-m);font-size:.7rem;color:var(--t3)">
+        ${rank===0?'Prédit':'Alternatif'}
+      </div>
+      <div class="top3-pct" style="color:${t.color}">${(t.prob*100).toFixed(2)}%</div>
+    </div>`).join('');
+}
+
+/* ── START ───────────────────────────────── */
+init();
+</script>
+</body>
+</html>
